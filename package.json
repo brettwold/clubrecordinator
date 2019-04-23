@@ -1,0 +1,31 @@
+{
+  "name": "clubrecordinator",
+  "version": "1.0.0",
+  "description": "A thingy that gets and updates club records into a google spreadsheet",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc",
+    "dev": "ts-node-dev --respawn --transpileOnly ./build/index.js",
+    "prod": "tsc && node ./build/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@akanass/rx-http-request": "^3.1.0",
+    "@types/gapi": "0.0.36",
+    "@types/jsdom": "^12.2.3",
+    "googleapis": "^27.0.0",
+    "jquery": "^3.4.0",
+    "jsdom": "^15.0.0",
+    "moment": "^2.24.0",
+    "object-assign": "^4.1.1",
+    "rxjs": "^6.5.1",
+    "rxjs-compat": "^6.5.1",
+    "ts-node-dev": "^1.0.0-pre.32",
+    "typescript": "^3.4.4"
+  },
+  "devDependencies": {
+    "@types/jquery": "^3.3.29"
+  }
+}
