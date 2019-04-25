@@ -31,27 +31,64 @@ export class AsaService {
   };
 
   private swimData :any;
+  private page: any;
 
-  constructor () {
+  private swimmerLocal: Map<string, Swimmer>;
+
+  constructor (page: any) {
     this.swimData = DefaultSwimData.DATA;
+    this.page = page;
+    this.swimmerLocal = new Map();
   }
 
   getSwimmer (id: number): Observable<Swimmer> {
+    let self = this;
     let url = AsaService.ASA_URL + AsaService.INDIVIDUAL_BEST + id;
     console.log( url );
-    return RxHR.get(url)
-                    .map(res => this.extractData(res))
-                    .catch(this.handleError);
+
+    if(this.swimmerLocal.has(`${id}`)) {
+      let swimmer = <Swimmer>this.swimmerLocal.get(`${id}`);
+      return Observable.of(swimmer);
+    } else {
+      if(this.page) {
+        return new Observable(subscriber => {
+          this.page.goto(url).then((response: any) => {
+            response.text().then((body: string) => {
+              let swimmer = self.extractData(body);
+              self.swimmerLocal.set(swimmer.regno, swimmer);
+              subscriber.next(swimmer);
+              subscriber.complete();
+            });
+          });
+        });
+      } else {
+        return RxHR.get(url)
+                  .map(res => this.extractData(res.body))
+                  .catch(this.handleError);
+      }
+    }
   }
 
-  getSwimmerTimes (id: number, race_type: number): Observable<SwimTime[]>  {
+  getSwimmerTimes (id: string, race_type: number): Observable<SwimTime[]>  {
+    let self = this;
     let asaStroke = this.getAsaStrokeCode(race_type);
     let asaCourse = this.getAsaCourseCode(race_type);
     let url = AsaService.ASA_URL + AsaService.STROKE_HISTORY + id + AsaService.ATTR_STOKE_TYPE + asaStroke + AsaService.ATTR_COURSE_TYPE + asaCourse;
 
-    return RxHR.get(url)
-                    .map(res => this.extractTimes(id, race_type, res))
-                    .catch(this.handleError);
+    if(this.page) {
+      return new Observable(subscriber => {
+        this.page.goto(url).then((response: any) => {
+          response.text().then((body: string) => {
+            subscriber.next(self.extractTimes(id, race_type, body));
+            subscriber.complete();
+          });
+        });
+      });
+    } else {
+      return RxHR.get(url)
+                .map(res => this.extractTimes(id, race_type, res.body))
+                .catch(this.handleError);
+    }
   }
 
   private removeBrackets (str :string) :string {
@@ -165,7 +202,7 @@ export class AsaService {
     return (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
   }
 
-  private processAllTimeTables(dom: any, times: SwimTime[], regno: number, race_type: number) {
+  private processAllTimeTables(dom: any, times: SwimTime[], regno: string, race_type: number) {
     let self = this;
 
     dom.find('#rankTable').first().find('tr').each(function(i :number, row :any) {
@@ -173,7 +210,7 @@ export class AsaService {
         let selectcol = $(row).find('td');
 
         if(selectcol.eq(0).text() != "") {
-          time.swimmer_regno = regno;
+          time.swimmer_regno = +regno;
           time.race_type = race_type;
           time.source = "ASA";
           time.setFormattedTime(selectcol.eq(0).text().trim());
@@ -187,22 +224,45 @@ export class AsaService {
       });
   }
 
-  public findTimeMatch(swimmer :Swimmer, course :string, distance :number, stroke :string, recordDate :string, recordTime :string) :SwimTime {
+  public findTimeMatch(swimmer: Swimmer, course: string, distance: number, stroke: string, recordDate: string, recordTime: string): Observable<SwimTime> {
     let race = this.getRaceType(course, distance, stroke);
+    var time: SwimTime;
+
+    console.log(`Got race type: ${JSON.stringify(race)}`);
     if(race) {
-      for(let time of swimmer.times) {
-        if(time.race_type == race.id) {
-          if(this.formatDateLongYear(recordDate) == time.date && timeUtils.getHundredthsFromString(recordTime) == time.time) {
-            return time;
-          }
-        }
+      time = this.checkForTimeMatch(swimmer.times, race, recordDate, recordTime);
+      if(time) {
+        return Observable.of(time);
+      } else {
+        return this.getSwimmerTimes(swimmer.regno, race.id).map((times) => {
+           swimmer.times = swimmer.times.concat(times);
+           time = this.checkForTimeMatch(times, race, recordDate, recordTime);
+           if(time) {
+             return time;
+           }
+           return new SwimTime({});
+        });
       }
     }
 
-    return new SwimTime({});
+    return Observable.of(new SwimTime({}));
   }
 
-  private getRaceType(course :string, distance :number, stroke :string) :any {
+  private checkForTimeMatch(times: Array<SwimTime>, race: any, recordDate: string, recordTime: string): any {
+    for(let time of times) {
+      if(time.race_type == race.id) {
+        console.log(`Got swimmer time: ${JSON.stringify(time)}`);
+        console.log(`Submitted date ${this.formatDateLongYear(recordDate)} time date: ${time.date}`)
+        console.log(`Submitted time ${recordTime} == ${timeUtils.getHundredthsFromString(recordTime)} rankings time: ${time.time}`)
+        if(this.formatDateLongYear(recordDate) == time.date && timeUtils.getHundredthsFromString(recordTime) == time.time) {
+          return time;
+        }
+      }
+    }
+    return null;
+  }
+
+  public getRaceType(course :string, distance :number, stroke :string): any {
     for(let i in this.swimData.races) {
       let race = this.swimData.races[i];
       if(race.course_type == course && race.distance == distance && race.stroke == AsaService.STROKE_LOOKUP[stroke]) {
@@ -220,8 +280,8 @@ export class AsaService {
     return this.swimData.races[race_type].asa_course
   }
 
-  private extractData(res :RxHttpRequestResponse) {
-    let dom = $(res.body);
+  private extractData(body :string) {
+    let dom = $(body);
     let swimmer :any = {};
     let names = dom.find('.rankingsContent p').first().text();
     this.processName(swimmer, names);
@@ -231,8 +291,8 @@ export class AsaService {
     return newSwimmer;
   }
 
-  private extractTimes(regno: number, race_type: number, res: RxHttpRequestResponse) {
-    let dom = $(res.body);
+  private extractTimes(regno: string, race_type: number, body: string) {
+    let dom = $(body);
     let times: Array<SwimTime> = new Array();
 
     this.processAllTimeTables(dom, times, regno, race_type);

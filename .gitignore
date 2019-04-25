@@ -38,6 +38,7 @@ typings/
 lib/*.js
 test/*.js
 *.map
+tmp/
 
 token.json
 build/

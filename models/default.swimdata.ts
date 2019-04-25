@@ -55,6 +55,13 @@ export class DefaultSwimData {
       "MR": "Medley relay",
       "FR": "Freestyle relay",
     },
+    strokes_short: {
+      "FS": "Free",
+      "BK": "Back",
+      "BR": "Breast",
+      "BF": "Fly",
+      "IM": "IM"
+    },
     races: {
       101: { id: 101, name: "25m Freestyle", stroke: "FS", course_type: "SC", distance: 25, lengths: 1, team: false, asa_course: "S", asa_stroke: 99 },
       102: { id: 102, name: "50m Freestyle", stroke: "FS", course_type: "SC", distance: 50, lengths: 2, team: false, asa_course: "S", asa_stroke: 1, turn_factor: 42.245, eq_race_id: 201 },

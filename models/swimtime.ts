@@ -30,9 +30,19 @@ export class SwimTime {
     this.time = tenths;
   }
 
+  public setDateAchievedFromManual(dateStr :string) {
+    let mom = moment(dateStr, 'DD/MM/YYYY');
+    this.unix = mom.unix();
+    this.date = mom.format('YYYY-MM-DD');
+  }
+
   public setDateAchieved(dateStr: string) {
     this.unix = moment(dateStr, 'YYYY-MM-DD').unix();
     this.date = dateStr;
+  }
+
+  public getDateFormatted(formatStr: string) {
+     return moment(this.date, 'YYYY-MM-DD').format(formatStr);
   }
 
   public setData(swimTime :any) {
